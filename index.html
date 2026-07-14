@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f4f0" />
+    <title>动线生成器</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 18c5-1 4-7 8-8s3-5 8-5"/><circle cx="4" cy="18" r="1.5"/><circle cx="20" cy="5" r="1.5"/></svg>
+          </div>
+          <div>
+            <h1>动线生成器</h1>
+            <p>户型图 · 路径绘制 · 循环动画</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="save-state" id="saveState"><i></i> 本地处理 · 不上传</span>
+          <button class="button button--secondary" id="previewButton" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"/></svg>
+            重新预览
+          </button>
+          <button class="button button--primary" id="exportMp4Button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
+            导出 MP4
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar" aria-label="动线编辑工具">
+          <section class="panel-section">
+            <div class="section-heading">
+              <span class="step">01</span>
+              <div><h2>户型底图</h2><p>上传 PNG 或 JPG 户型图</p></div>
+            </div>
+            <label class="upload-zone" for="backgroundInput">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.5V19h16v-2.5M12 16V4m0 0 4 4m-4-4L8 8"/></svg>
+              <span><strong>替换户型图</strong><small>推荐竖版高清图片</small></span>
+              <input id="backgroundInput" type="file" accept="image/png,image/jpeg,image/webp" />
+            </label>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-heading">
+              <span class="step">02</span>
+              <div><h2>绘制动线</h2><p>在右侧户型图上依次点击路径点</p></div>
+            </div>
+            <div class="draw-actions">
+              <button class="button button--draw" id="startDrawButton" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.4-1 10.8-10.8-3.4-3.4L5 15.6 4 20ZM14.8 5.8l3.4 3.4"/></svg>
+                新建动线
+              </button>
+              <button class="button button--secondary is-hidden" id="undoPointButton" type="button">撤销点</button>
+              <button class="button button--primary is-hidden" id="finishDrawButton" type="button">完成</button>
+              <button class="text-button is-hidden" id="cancelDrawButton" type="button">取消</button>
+            </div>
+            <div class="draw-tip is-hidden" id="drawTip"><i></i><span>绘制中：请在户型图上点击，至少添加 2 个点</span></div>
+            <div class="route-list" id="routeList"></div>
+            <div class="route-tools" id="routeTools">
+              <div class="palette-row">
+                <span>快捷颜色</span>
+                <div class="palette-buttons" id="paletteButtons" aria-label="动线快捷颜色"></div>
+              </div>
+              <div class="anchor-actions">
+                <button class="button button--secondary button--wide" id="editAnchorsButton" type="button">编辑锚点</button>
+                <button class="button button--secondary is-hidden" id="addAnchorButton" type="button">添加锚点</button>
+                <button class="button button--secondary is-hidden" id="deleteAnchorButton" type="button">删除点</button>
+                <button class="button button--primary is-hidden" id="finishAnchorsButton" type="button">完成编辑</button>
+              </div>
+              <div class="draw-tip is-hidden" id="anchorTip"><i></i><span>拖动圆点调整路径；点击“添加锚点”后在动线上点选位置</span></div>
+            </div>
+          </section>
+
+          <section class="panel-section settings-section">
+            <div class="section-heading">
+              <span class="step">03</span>
+              <div><h2>动画设置</h2><p>所有动线保持统一粗细</p></div>
+            </div>
+
+            <label class="range-field" for="lineWidthInput">
+              <span>线条粗细 <output id="lineWidthValue">10 px</output></span>
+              <input id="lineWidthInput" type="range" min="4" max="24" value="10" step="1" />
+            </label>
+            <label class="range-field" for="speedInput">
+              <span>播放速度 <output id="speedValue">1.0×</output></span>
+              <input id="speedInput" type="range" min="0.5" max="2" value="1" step="0.1" />
+            </label>
+            <label class="switch-row" for="loopInput">
+              <span><strong>循环播放</strong><small>播放结束后自动重新开始</small></span>
+              <input id="loopInput" type="checkbox" checked />
+              <i aria-hidden="true"></i>
+            </label>
+          </section>
+
+          <section class="panel-section export-section">
+            <button class="button button--secondary button--wide" id="exportHtmlButton" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9 4 12l4 3m8-6 4 3-4 3m-5 3 2-12"/></svg>
+              导出 HTML 动画
+            </button>
+            <button class="button button--secondary button--wide" id="exportPngButton" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 15l4-4 4 4 2-2 6 6M16 9h.01"/></svg>
+              导出静态 PNG
+            </button>
+            <button class="text-button" id="resetExampleButton" type="button">恢复示例</button>
+          </section>
+        </aside>
+
+        <section class="canvas-area" aria-label="动画预览画布">
+          <div class="canvas-toolbar">
+            <div class="canvas-title"><i></i><span id="canvasStatus">动画预览</span></div>
+            <div class="canvas-meta"><span id="routeCount">3 条动线</span><span class="divider"></span><span id="canvasSize">1080 × 1920</span></div>
+          </div>
+          <div class="canvas-stage" id="canvasStage">
+            <div class="plan" id="plan">
+              <svg id="editorCanvas" viewBox="0 0 1080 1920" role="img" aria-label="户型动线编辑画布">
+                <image id="backgroundImage" href="assets/background.png" width="1080" height="1920" />
+                <g id="routeLayer"></g>
+                <g id="draftLayer"></g>
+              </svg>
+              <div class="canvas-hint is-hidden" id="canvasHint">点击户型图添加路径点</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
