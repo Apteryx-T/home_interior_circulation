@@ -407,6 +407,55 @@ async function backgroundDataUrl() {
   return canvas.toDataURL('image/png');
 }
 
+function pngCrc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function createPngResolutionChunk(dpi) {
+  const pixelsPerMeter = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, 9, false);
+  chunk.set([112, 72, 89, 115], 4); // pHYs
+  view.setUint32(8, pixelsPerMeter, false);
+  view.setUint32(12, pixelsPerMeter, false);
+  chunk[16] = 1;
+  view.setUint32(17, pngCrc32(chunk.subarray(4, 17)), false);
+  return chunk;
+}
+
+async function setPngDpi(blob, dpi) {
+  const source = new Uint8Array(await blob.arrayBuffer());
+  const sourceView = new DataView(source.buffer, source.byteOffset, source.byteLength);
+  const resolutionChunk = createPngResolutionChunk(dpi);
+  let offset = 8;
+  let insertAt = null;
+
+  while (offset + 12 <= source.length) {
+    const length = sourceView.getUint32(offset, false);
+    const type = String.fromCharCode(...source.subarray(offset + 4, offset + 8));
+    if (type === 'IHDR') insertAt = offset + 12 + length;
+    if (type === 'pHYs' && length === 9) {
+      const output = source.slice();
+      output.set(resolutionChunk, offset);
+      return new Blob([output], { type: 'image/png' });
+    }
+    offset += 12 + length;
+  }
+
+  if (insertAt === null) return blob;
+  const output = new Uint8Array(source.length + resolutionChunk.length);
+  output.set(source.subarray(0, insertAt), 0);
+  output.set(resolutionChunk, insertAt);
+  output.set(source.subarray(insertAt), insertAt + resolutionChunk.length);
+  return new Blob([output], { type: 'image/png' });
+}
+
 async function exportPng() {
   try {
     const image = await loadImage(state.background);
@@ -419,8 +468,16 @@ async function exportPng() {
     context.lineCap = 'round';
     context.lineJoin = 'round';
     state.routes.forEach(route => { context.strokeStyle = route.color; context.stroke(new Path2D(route.d)); });
-    canvas.toBlob(blob => downloadBlob(blob, '户型动线.png'), 'image/png');
-    showToast('静态图片已导出');
+    canvas.toBlob(async blob => {
+      try {
+        if (!blob) throw new Error('PNG encoding failed');
+        const png72Ppi = await setPngDpi(blob, 72);
+        downloadBlob(png72Ppi, '户型动线_72ppi.png');
+        showToast('72 PPI 静态图片已导出');
+      } catch {
+        showToast('PNG 导出失败，请重试');
+      }
+    }, 'image/png');
   } catch { showToast('导出失败，请先重新上传底图'); }
 }
 
